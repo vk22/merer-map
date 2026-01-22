@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Animated Map</title>
+<style>
+  html,body { margin:0; height:100%; background:#000 }
+  #wrap {
+    position:relative;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+  }
+  canvas {
+    width:100%;
+    height:100%;
+    display:block;
+  }
+</style>
+</head>
+<body>
+
+<div id="wrap">
+  <canvas id="c"></canvas>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let dpr = window.devicePixelRatio || 1;
+let width = 0;
+let height = 0;
+
+function resize() {
+  const rect = canvas.getBoundingClientRect();
+  dpr = window.devicePixelRatio || 1;
+
+  width  = rect.width;
+  height = rect.height;
+
+  canvas.width  = Math.round(width * dpr);
+  canvas.height = Math.round(height * dpr);
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const map = new Image();
+const clouds1 = new Image();
+const clouds2 = new Image();
+
+map.src = 'map2.jpg';
+clouds1.src = 'clouds_big.png';
+clouds2.src = 'clouds_small.png';
+
+/* ------------------ MARKERS ------------------ */
+
+const markers = [
+  { title: 'ICONIC Residences', x: 0.605, y: 0.251, delay: 0 },
+  { title: 'RIVIERA Residences', x: 0.275, y: 0.745, delay: 0.4 },
+];
+
+const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+
+function drawMarker(m, t, mapRect) {
+  const px = mapRect.x + m.x * mapRect.w;
+  const py = mapRect.y + m.y * mapRect.h;
+
+  const appear = Math.min(1, Math.max(0, (t - m.delay) / 0.8));
+  const a = easeOutCubic(appear);
+
+  const float = Math.sin(t * 1.4 + m.delay * 4) * 4;
+
+  // линия
+  ctx.strokeStyle = `rgba(15,15,15,${0.45 * a})`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(px, py);
+  ctx.lineTo(px, py - 36 * a);
+  ctx.stroke();
+
+  // пульс точки
+  const pulse = (Math.sin(t * 2.5) + 1) * 0.5;
+  ctx.fillStyle = `rgba(15,15,15,${0.9 * a})`;
+  ctx.beginPath();
+  ctx.arc(px, py, 4 + pulse * 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // label
+  ctx.globalAlpha = a;
+  ctx.fillStyle = 'rgba(15,15,15,1)';
+  ctx.fillRect(px - 120, py - 90 + float, 240, 70);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = '18px Inter, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(m.title, px, py - 55 + float);
+
+  ctx.globalAlpha = 1;
+}
+
+/* ------------------ MAP DRAW ------------------ */
+
+function drawImageCover(ctx, img, cw, ch) {
+const iw = img.naturalWidth;
+  const ih = img.naturalHeight;
+
+  const scale = Math.max(cw / iw, ch / ih);
+  const w = iw * scale;
+  const h = ih * scale;
+
+  const x = (cw - w) / 2;
+  const y = (ch - h) / 2;
+
+  ctx.drawImage(img, x, y, w, h);
+
+  return { x, y, w, h };
+}
+
+/* ------------------ CLOUDS ------------------ */
+
+let x1 = 0;
+let x2 = 0;
+
+/* ------------------ DRAW LOOP ------------------ */
+
+let start = performance.now();
+
+function draw(now) {
+  const t = (now - start) / 1000;
+
+  ctx.clearRect(0, 0, width, height);
+
+  // карта
+  const mapRect = drawImageCover(ctx, map, width, height);
+
+  // облака — слой 1
+  x1 += 0.06;
+  if (x1 > width) x1 = 0;
+  ctx.globalAlpha = 0.95;
+  ctx.drawImage(clouds1, x1, -x1 * 0.4, width, height);
+  ctx.drawImage(clouds1, x1 - width, -x1 * 0.4, width, height);
+
+  // облака — слой 2
+//   x2 += 0.12;
+//   if (x2 > width) x2 = 0;
+//   ctx.globalAlpha = 0.88;
+//   ctx.drawImage(clouds2, x2, -x2 * 0.5, width, height);
+//   ctx.drawImage(clouds2, x2 - width, -x2 * 0.5, width, height);
+
+  ctx.globalAlpha = 1;
+
+  // маркеры
+//   for (const m of markers) {
+//     drawMarker(m, t, mapRect);
+//   }
+  
+
+  requestAnimationFrame(draw);
+}
+
+Promise.all([
+  new Promise(r => map.onload = r),
+  new Promise(r => clouds1.onload = r),
+  new Promise(r => clouds2.onload = r),
+]).then(() => requestAnimationFrame(draw));
+</script>
+
+
+
+</body>
+</html>
