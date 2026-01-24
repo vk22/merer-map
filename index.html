@@ -1,230 +1,280 @@
 <!doctype html>
 <html lang="ru">
-<head>
-<meta charset="utf-8">
-<title>Animated Map</title>
-<style>
-  html,body { margin:0; height:100%; background:#000 }
-  #wrap {
-    position:relative;
-    width:100%;
-    height:100%;
-    overflow:hidden;
-  }
-  canvas {
-    width:100%;
-    height:100%;
-    display:block;
-  }
-</style>
-</head>
-<body>
+  <head>
+    <meta charset="utf-8" />
+    <title>Animated Map</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #000;
+      }
+      #wrap {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="wrap">
+      <canvas id="c"></canvas>
+    </div>
 
-<div id="wrap">
-  <canvas id="c"></canvas>
-</div>
+    <script>
+      /* ================== CANVAS / DPI ================== */
+      const canvas = document.getElementById("c");
+      const ctx = canvas.getContext("2d");
 
-<script>
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d');
+      let dpr = window.devicePixelRatio || 1;
+      let width = 0;
+      let height = 0;
 
-let dpr = window.devicePixelRatio || 1;
-let width = 0;
-let height = 0;
+      function resize() {
+        const rect = canvas.getBoundingClientRect();
+        dpr = window.devicePixelRatio || 1;
 
-function resize() {
-  const rect = canvas.getBoundingClientRect();
-  dpr = window.devicePixelRatio || 1;
+        width = rect.width;
+        height = rect.height;
 
-  width  = rect.width;
-  height = rect.height;
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+      }
+      window.addEventListener("resize", resize);
+      resize();
 
-  canvas.width  = Math.round(width * dpr);
-  canvas.height = Math.round(height * dpr);
+      /* ================== ASSETS ================== */
+      const map = new Image();
+      const clouds1 = new Image();
 
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-window.addEventListener('resize', resize);
-resize();
+      map.src = "map.jpg";
+      clouds1.src = "clouds_big.png";
 
-const map = new Image();
-const clouds1 = new Image();
-const clouds2 = new Image();
+      /* ================== CAMERA ================== */
+      let camera = {
+        scale: 1,
+        x: 0,
+        y: 0,
+        targetScale: 1,
+        targetX: 0,
+        targetY: 0,
+        activeMarker: null,
+      };
 
-map.src = 'map.jpg';
-clouds1.src = 'clouds_big.png';
-clouds2.src = 'clouds_small.png';
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
-/* ------------------ MARKERS ------------------ */
+      function clampCameraToMap(mapRect) {
+        const scaledW = mapRect.w * camera.targetScale;
+        const scaledH = mapRect.h * camera.targetScale;
 
-const markers = [
-  {
-    x: 0.625,
-    y: 0.260,
-    delay: 0,
-    logo: 'iconic-logo.png',
-    w: 160,
-    h: 75
-  },
-  {
-    x: 0.246,
-    y: 0.744,
-    delay: 0.4,
-    logo: 'rivera-logo.png',
-    w: 160,
-    h: 75
-  }
-];
+        const minX = width - (mapRect.x + scaledW);
+        const maxX = -mapRect.x;
 
-const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+        const minY = height - (mapRect.y + scaledH);
+        const maxY = -mapRect.y;
 
-function roundRect(ctx, x, y, w, h, r) {
-  r = Math.min(r, w / 2, h / 2);
+        camera.targetX = clamp(camera.targetX, minX, maxX);
+        camera.targetY = clamp(camera.targetY, minY, maxY);
+      }
 
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
+      function zoomToMarker(marker, px, py) {
+        if (camera.activeMarker === marker) {
+          resetZoom();
+          return;
+        }
 
-function drawMarker(m, t, mapRect) {
-  if (!m.img || !m.img.complete) return;
+        camera.activeMarker = marker;
 
-  const px = mapRect.x + m.x * mapRect.w;
-  const py = mapRect.y + m.y * mapRect.h;
+        camera.targetScale = 1.45;
 
-  const appear = Math.min(1, Math.max(0, (t - m.delay) / 0.8));
-  const a = easeOutCubic(appear);
+        // ⭐ центрируем маркер
+        camera.targetX = width / 2 - px * camera.targetScale;
+        camera.targetY = height / 2 - py * camera.targetScale;
 
-  const float = Math.sin(t * 1.4 + m.delay * 4) * 4;
-  const scale = 0.85 + a * 0.05;
-
-  // линия
-  ctx.strokeStyle = `rgba(51,51,51,${0.45 * a})`;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(px, py);
-  ctx.lineTo(px, py - 45 * a);
-  ctx.stroke();
-
-  // пульс точки
-  const pulse = (Math.sin(t * 2.5) + 1) * 0.5;
-  ctx.fillStyle = `rgba(51,51,51,${0.9 * a})`;
-  ctx.beginPath();
-  ctx.arc(px, py, 4 + pulse * 2, 0, Math.PI * 2);
-  ctx.fill();
-
-  // подложка
-  ctx.globalAlpha = a;
-  ctx.fillStyle = 'rgba(51,51,51,0.95)';
-  roundRect(
-    ctx,
-    px - m.w / 1.75 - 16,
-    py - 150 + float,
-    m.w + 55,
-    m.h + 32,
-    14 // радиус скругления
-  );
-  ctx.fill();
-
-  // логотип
-  ctx.save();
-  ctx.translate(px, py - 95 + float);
-  ctx.scale(scale, scale);
-  ctx.drawImage(
-    m.img,
-    -m.w / 2,
-    -m.h / 2,
-    m.w,
-    m.h
-  );
-  ctx.restore();
-
-  ctx.globalAlpha = 1;
-}
+        clampCameraToMap(lastMapRect);
+      }
 
 
-/* ------------------ MAP DRAW ------------------ */
+      function resetZoom() {
+        camera.activeMarker = null;
+        camera.targetScale = 1;
+        camera.targetX = 0;
+        camera.targetY = 0;
+      }
 
-function drawImageCover(ctx, img, cw, ch) {
-const iw = img.naturalWidth;
-  const ih = img.naturalHeight;
+      /* ================== MARKERS ================== */
+      const markers = [
+        { x: 0.625, y: 0.26, logo: "iconic-logo.png", w: 160, h: 75, delay: 0 },
+        {
+          x: 0.246,
+          y: 0.744,
+          logo: "rivera-logo.png",
+          w: 160,
+          h: 75,
+          delay: 0.4,
+        },
+      ];
 
-  const scale = Math.max(cw / iw, ch / ih);
-  const w = iw * scale;
-  const h = ih * scale;
+      markers.forEach((m) => {
+        const img = new Image();
+        img.src = m.logo;
+        m.img = img;
+      });
 
-  const x = (cw - w) / 2;
-  const y = (ch - h) / 2;
+      const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
-  ctx.drawImage(img, x, y, w, h);
+      function roundRect(ctx, x, y, w, h, r) {
+        r = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+      }
 
-  return { x, y, w, h };
-}
+      function drawMarker(m, t, mapRect) {
+        if (!m.img.complete) return;
 
-/* ------------------ CLOUDS ------------------ */
+        const px = mapRect.x + m.x * mapRect.w;
+        const py = mapRect.y + m.y * mapRect.h;
 
-let x1 = 0;
-let x2 = 0;
+        const appear = Math.min(1, Math.max(0, (t - m.delay) / 0.8));
+        const a = easeOutCubic(appear);
+        const float = Math.sin(t * 1.4 + m.delay * 4) * 4;
 
-/* ------------------ DRAW LOOP ------------------ */
+        ctx.strokeStyle = `rgba(50,50,50,${0.4 * a})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(px, py - 45 * a);
+        ctx.stroke();
 
-let start = performance.now();
+        ctx.fillStyle = `rgba(50,50,50,${0.9 * a})`;
+        ctx.beginPath();
+        ctx.arc(px, py, 4, 0, Math.PI * 2);
+        ctx.fill();
 
-function draw(now) {
-  const t = (now - start) / 1000;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = "rgba(50,50,50,0.95)";
+        roundRect(
+          ctx,
+          px - m.w / 1.75 - 16,
+          py - 150 + float,
+          m.w + 55,
+          m.h + 32,
+          14,
+        );
+        ctx.fill();
 
-  ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(m.img, px - m.w / 2, py - 132 + float, m.w, m.h);
 
-  // карта
-  const mapRect = drawImageCover(ctx, map, width, height);
+        ctx.globalAlpha = 1;
+      }
 
-  // облака — слой 1
-  x1 += 0.06;
-  if (x1 > width) x1 = 0;
-  ctx.globalAlpha = 0.95;
-  ctx.drawImage(clouds1, x1, -x1 * 0.4, width, height);
-  ctx.drawImage(clouds1, x1 - width, -x1 * 0.4, width, height);
+      /* ================== MAP ================== */
+      function drawImageCover(ctx, img, cw, ch) {
+        const iw = img.naturalWidth;
+        const ih = img.naturalHeight;
+        const scale = Math.max(cw / iw, ch / ih);
+        const w = iw * scale;
+        const h = ih * scale;
+        const x = (cw - w) / 2;
+        const y = (ch - h) / 2;
+        ctx.drawImage(img, x, y, w, h);
+        return { x, y, w, h };
+      }
 
-  // облака — слой 2
-//   x2 += 0.12;
-//   if (x2 > width) x2 = 0;
-//   ctx.globalAlpha = 0.88;
-//   ctx.drawImage(clouds2, x2, -x2 * 0.5, width, height);
-//   ctx.drawImage(clouds2, x2 - width, -x2 * 0.5, width, height);
+      /* ================== LOOP ================== */
+      let lastMapRect = null;
+      let cloudX = 0;
+      let start = performance.now();
 
-  ctx.globalAlpha = 1;
+      function draw(now) {
+        const t = (now - start) / 1000;
 
-  markers.forEach(m => {
-    const img = new Image();
-    img.src = m.logo;
-    m.img = img;
-  });
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // маркеры
-  for (const m of markers) {
-    drawMarker(m, t, mapRect);
-  }
-  
+        camera.scale = lerp(camera.scale, camera.targetScale, 0.03);
+        camera.x = lerp(camera.x, camera.targetX, 0.03);
+        camera.y = lerp(camera.y, camera.targetY, 0.03);
 
-  requestAnimationFrame(draw);
-}
+        ctx.setTransform(
+          camera.scale * dpr,
+          0,
+          0,
+          camera.scale * dpr,
+          camera.x * dpr,
+          camera.y * dpr,
+        );
 
-Promise.all([
-  new Promise(r => map.onload = r),
-  new Promise(r => clouds1.onload = r),
-  new Promise(r => clouds2.onload = r),
-]).then(() => requestAnimationFrame(draw));
-</script>
+        lastMapRect = drawImageCover(ctx, map, width, height);
 
+        cloudX += 0.06;
+        if (cloudX > width) cloudX = 0;
+        ctx.globalAlpha = 0.95;
+        ctx.drawImage(clouds1, cloudX, -cloudX * 0.4, width, height);
+        ctx.drawImage(clouds1, cloudX - width, -cloudX * 0.4, width, height);
+        ctx.globalAlpha = 1;
 
+        markers.forEach((m) => drawMarker(m, t, lastMapRect));
 
-</body>
+        requestAnimationFrame(draw);
+      }
+
+      /* ================== CLICK ================== */
+      canvas.addEventListener("click", (e) => {
+        if (!lastMapRect) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        const wx = (mx - camera.x) / camera.scale;
+        const wy = (my - camera.y) / camera.scale;
+
+        for (const m of markers) {
+          const px = lastMapRect.x + m.x * lastMapRect.w;
+          const py = lastMapRect.y + m.y * lastMapRect.h;
+
+          const box = {
+            x: px - m.w / 1.75 - 16,
+            y: py - 150,
+            w: m.w + 55,
+            h: m.h + 32,
+          };
+
+          if (
+            wx >= box.x &&
+            wx <= box.x + box.w &&
+            wy >= box.y &&
+            wy <= box.y + box.h
+          ) {
+            zoomToMarker(m, px, py);
+            break;
+          }
+        }
+      });
+
+      /* ================== START ================== */
+      Promise.all([
+        new Promise((r) => (map.onload = r)),
+        new Promise((r) => (clouds1.onload = r)),
+      ]).then(() => requestAnimationFrame(draw));
+    </script>
+  </body>
 </html>
