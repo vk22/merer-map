@@ -29,6 +29,7 @@
     </div>
 
     <script>
+      const OVERSCAN = 1.15
       /* ================== CANVAS / DPI ================== */
       const canvas = document.getElementById("c");
       const ctx = canvas.getContext("2d");
@@ -49,6 +50,15 @@
       }
       window.addEventListener("resize", resize);
       resize();
+
+      /* ================== MOUSE ================== */
+
+      let mouse = {
+        x: 0,
+        y: 0,
+        tx: 0,
+        ty: 0
+      };
 
       /* ================== ASSETS ================== */
       const map = new Image();
@@ -93,7 +103,7 @@
 
         camera.activeMarker = marker;
 
-        camera.targetScale = 1.45;
+        camera.targetScale = 1.15;
 
         // ⭐ центрируем маркер
         camera.targetX = width / 2 - px * camera.targetScale;
@@ -112,13 +122,13 @@
 
       /* ================== MARKERS ================== */
       const markers = [
-        { x: 0.625, y: 0.26, logo: "iconic-logo.png", w: 160, h: 75, delay: 0 },
+        { x: 0.625, y: 0.26, logo: "iconic-logo.png", w: 120, h: 55, delay: 0 },
         {
           x: 0.246,
           y: 0.744,
           logo: "rivera-logo.png",
-          w: 160,
-          h: 75,
+          w: 120,
+          h: 55,
           delay: 0.4,
         },
       ];
@@ -156,20 +166,20 @@
         const a = easeOutCubic(appear);
         const float = Math.sin(t * 1.4 + m.delay * 4) * 4;
 
-        ctx.strokeStyle = `rgba(50,50,50,${0.4 * a})`;
+        ctx.strokeStyle = `rgba(21,24,37,${0.4 * a})`;
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(px, py);
-        ctx.lineTo(px, py - 45 * a);
+        ctx.lineTo(px, py - 65 * a);
         ctx.stroke();
 
-        ctx.fillStyle = `rgba(50,50,50,${0.9 * a})`;
+        ctx.fillStyle = `rgba(21,24,37,${0.9 * a})`;
         ctx.beginPath();
         ctx.arc(px, py, 4, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.globalAlpha = a;
-        ctx.fillStyle = "rgba(50,50,50,0.95)";
+        ctx.fillStyle = "rgba(21,24,37,0.95)";
         roundRect(
           ctx,
           px - m.w / 1.75 - 16,
@@ -189,7 +199,7 @@
       function drawImageCover(ctx, img, cw, ch) {
         const iw = img.naturalWidth;
         const ih = img.naturalHeight;
-        const scale = Math.max(cw / iw, ch / ih);
+        const scale = Math.max(cw / iw, ch / ih) * OVERSCAN;
         const w = iw * scale;
         const h = ih * scale;
         const x = (cw - w) / 2;
@@ -213,13 +223,18 @@
         camera.x = lerp(camera.x, camera.targetX, 0.03);
         camera.y = lerp(camera.y, camera.targetY, 0.03);
 
+        mouse.x = lerp(mouse.x, mouse.tx, 0.06);
+        mouse.y = lerp(mouse.y, mouse.ty, 0.06);
+
+        const PARALLAX = 30;
+
         ctx.setTransform(
           camera.scale * dpr,
           0,
           0,
           camera.scale * dpr,
-          camera.x * dpr,
-          camera.y * dpr,
+          (camera.x + mouse.x * PARALLAX) * dpr,
+          (camera.y + mouse.y * PARALLAX) * dpr
         );
 
         lastMapRect = drawImageCover(ctx, map, width, height);
@@ -236,7 +251,7 @@
         requestAnimationFrame(draw);
       }
 
-      /* ================== CLICK ================== */
+      /* ================== EVENTS ================== */
       canvas.addEventListener("click", (e) => {
         if (!lastMapRect) return;
 
@@ -268,6 +283,14 @@
             break;
           }
         }
+      });
+
+      canvas.addEventListener('mousemove', e => {
+        const rect = canvas.getBoundingClientRect();
+
+        // нормализуем в диапазон [-1 .. 1]
+        mouse.tx = ((e.clientX - rect.left) / rect.width  - 0.5) * 2;
+        mouse.ty = ((e.clientY - rect.top)  / rect.height - 0.5) * 2;
       });
 
       /* ================== START ================== */
