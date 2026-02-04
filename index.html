@@ -29,7 +29,7 @@
     </div>
 
     <script>
-      const OVERSCAN = 1.15
+      const OVERSCAN = 1.15;
       /* ================== CANVAS / DPI ================== */
       const canvas = document.getElementById("c");
       const ctx = canvas.getContext("2d");
@@ -57,7 +57,7 @@
         x: 0,
         y: 0,
         tx: 0,
-        ty: 0
+        ty: 0,
       };
 
       /* ================== ASSETS ================== */
@@ -112,7 +112,6 @@
         clampCameraToMap(lastMapRect);
       }
 
-
       function resetZoom() {
         camera.activeMarker = null;
         camera.targetScale = 1;
@@ -122,10 +121,16 @@
 
       /* ================== MARKERS ================== */
       const markers = [
-        { x: 0.625, y: 0.26, logo: "iconic-logo.png", w: 120, h: 55, delay: 0 },
+        { 
+          x: 0.7, 
+          y: 0.29, 
+          logo: "iconic-logo.png", 
+          w: 120, 
+          h: 55, 
+          delay: 0 },
         {
-          x: 0.246,
-          y: 0.744,
+          x: 0.37,
+          y: 0.73,
           logo: "rivera-logo.png",
           w: 120,
           h: 55,
@@ -234,7 +239,7 @@
           0,
           camera.scale * dpr,
           (camera.x + mouse.x * PARALLAX) * dpr,
-          (camera.y + mouse.y * PARALLAX) * dpr
+          (camera.y + mouse.y * PARALLAX) * dpr,
         );
 
         lastMapRect = drawImageCover(ctx, map, width, height);
@@ -285,12 +290,12 @@
         }
       });
 
-      canvas.addEventListener('mousemove', e => {
+      canvas.addEventListener("mousemove", (e) => {
         const rect = canvas.getBoundingClientRect();
 
         // нормализуем в диапазон [-1 .. 1]
-        mouse.tx = ((e.clientX - rect.left) / rect.width  - 0.5) * 2;
-        mouse.ty = ((e.clientY - rect.top)  / rect.height - 0.5) * 2;
+        mouse.tx = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
+        mouse.ty = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
       });
 
       /* ================== START ================== */
