@@ -105,7 +105,7 @@
 
         camera.targetScale = 1.15;
 
-        // ⭐ центрируем маркер
+        // center marker
         camera.targetX = width / 2 - px * camera.targetScale;
         camera.targetY = height / 2 - py * camera.targetScale;
 
@@ -293,7 +293,7 @@
       canvas.addEventListener("mousemove", (e) => {
         const rect = canvas.getBoundingClientRect();
 
-        // нормализуем в диапазон [-1 .. 1]
+        // normalize [-1 .. 1]
         mouse.tx = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
         mouse.ty = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
       });
