@@ -1,308 +1,37 @@
 <!doctype html>
 <html lang="ru">
-  <head>
-    <meta charset="utf-8" />
-    <title>Mered Map</title>
-    <style>
-      html,
-      body {
-        margin: 0;
-        height: 100%;
-        background: #000;
-      }
-      #wrap {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-      }
-      canvas {
-        width: 100%;
-        height: 100%;
-        display: block;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="wrap">
-      <canvas id="c"></canvas>
-    </div>
+<head>
+  <meta charset="utf-8" />
+  <title>Mered Map</title>
 
-    <script>
-      const OVERSCAN = 1.15;
-      /* ================== CANVAS / DPI ================== */
-      const canvas = document.getElementById("c");
-      const ctx = canvas.getContext("2d");
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #000;
+    }
 
-      let dpr = window.devicePixelRatio || 1;
-      let width = 0;
-      let height = 0;
+    #wrap {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
 
-      function resize() {
-        const rect = canvas.getBoundingClientRect();
-        dpr = window.devicePixelRatio || 1;
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+  </style>
+</head>
 
-        width = rect.width;
-        height = rect.height;
+<body>
+  <div id="wrap">
+    <canvas id="c"></canvas>
+  </div>
 
-        canvas.width = Math.round(width * dpr);
-        canvas.height = Math.round(height * dpr);
-      }
-      window.addEventListener("resize", resize);
-      resize();
-
-      /* ================== MOUSE ================== */
-
-      let mouse = {
-        x: 0,
-        y: 0,
-        tx: 0,
-        ty: 0,
-      };
-
-      /* ================== ASSETS ================== */
-      const map = new Image();
-      const clouds1 = new Image();
-
-      map.src = "map.jpg";
-      clouds1.src = "clouds_big.png";
-
-      /* ================== CAMERA ================== */
-      let camera = {
-        scale: 1,
-        x: 0,
-        y: 0,
-        targetScale: 1,
-        targetX: 0,
-        targetY: 0,
-        activeMarker: null,
-      };
-
-      const lerp = (a, b, t) => a + (b - a) * t;
-      const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-
-      function clampCameraToMap(mapRect) {
-        const scaledW = mapRect.w * camera.targetScale;
-        const scaledH = mapRect.h * camera.targetScale;
-
-        const minX = width - (mapRect.x + scaledW);
-        const maxX = -mapRect.x;
-
-        const minY = height - (mapRect.y + scaledH);
-        const maxY = -mapRect.y;
-
-        camera.targetX = clamp(camera.targetX, minX, maxX);
-        camera.targetY = clamp(camera.targetY, minY, maxY);
-      }
-
-      function zoomToMarker(marker, px, py) {
-        if (camera.activeMarker === marker) {
-          resetZoom();
-          return;
-        }
-
-        camera.activeMarker = marker;
-
-        camera.targetScale = 1.15;
-
-        // center marker
-        camera.targetX = width / 2 - px * camera.targetScale;
-        camera.targetY = height / 2 - py * camera.targetScale;
-
-        clampCameraToMap(lastMapRect);
-      }
-
-      function resetZoom() {
-        camera.activeMarker = null;
-        camera.targetScale = 1;
-        camera.targetX = 0;
-        camera.targetY = 0;
-      }
-
-      /* ================== MARKERS ================== */
-      const markers = [
-        { 
-          x: 0.61, 
-          y: 0.32, 
-          logo: "iconic-logo.png", 
-          w: 120, 
-          h: 55, 
-          delay: 0 },
-        {
-          x: 0.312,
-          y: 0.722,
-          logo: "rivera-logo.png",
-          w: 120,
-          h: 55,
-          delay: 0.4,
-        },
-      ];
-
-      markers.forEach((m) => {
-        const img = new Image();
-        img.src = m.logo;
-        m.img = img;
-      });
-
-      const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
-
-      function roundRect(ctx, x, y, w, h, r) {
-        r = Math.min(r, w / 2, h / 2);
-        ctx.beginPath();
-        ctx.moveTo(x + r, y);
-        ctx.lineTo(x + w - r, y);
-        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-        ctx.lineTo(x + w, y + h - r);
-        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-        ctx.lineTo(x + r, y + h);
-        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-        ctx.lineTo(x, y + r);
-        ctx.quadraticCurveTo(x, y, x + r, y);
-        ctx.closePath();
-      }
-
-      function drawMarker(m, t, mapRect) {
-        if (!m.img.complete) return;
-
-        const px = mapRect.x + m.x * mapRect.w;
-        const py = mapRect.y + m.y * mapRect.h;
-
-        const appear = Math.min(1, Math.max(0, (t - m.delay) / 0.8));
-        const a = easeOutCubic(appear);
-        const float = Math.sin(t * 1.4 + m.delay * 4) * 4;
-
-        ctx.strokeStyle = `rgba(21,24,37,${0.4 * a})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(px, py);
-        ctx.lineTo(px, py - 65 * a);
-        ctx.stroke();
-
-        ctx.fillStyle = `rgba(21,24,37,${0.9 * a})`;
-        ctx.beginPath();
-        ctx.arc(px, py, 4, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.globalAlpha = a;
-        ctx.fillStyle = "rgba(21,24,37,0.85)";
-        roundRect(
-          ctx,
-          px - m.w / 1.75 - 16,
-          py - 150 + float,
-          m.w + 55,
-          m.h + 32,
-          14,
-        );
-        ctx.fill();
-
-        ctx.drawImage(m.img, px - m.w / 2, py - 132 + float, m.w, m.h);
-
-        ctx.globalAlpha = 1;
-      }
-
-      /* ================== MAP ================== */
-      function drawImageCover(ctx, img, cw, ch) {
-        const iw = img.naturalWidth;
-        const ih = img.naturalHeight;
-        const scale = Math.max(cw / iw, ch / ih) * OVERSCAN;
-        const w = iw * scale;
-        const h = ih * scale;
-        const x = (cw - w) / 2;
-        const y = (ch - h) / 2;
-        ctx.drawImage(img, x, y, w, h);
-        return { x, y, w, h };
-      }
-
-      /* ================== LOOP ================== */
-      let lastMapRect = null;
-      let cloudX = 0;
-      let start = performance.now();
-
-      function draw(now) {
-        const t = (now - start) / 1000;
-
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        camera.scale = lerp(camera.scale, camera.targetScale, 0.03);
-        camera.x = lerp(camera.x, camera.targetX, 0.03);
-        camera.y = lerp(camera.y, camera.targetY, 0.03);
-
-        mouse.x = lerp(mouse.x, mouse.tx, 0.06);
-        mouse.y = lerp(mouse.y, mouse.ty, 0.06);
-
-        const PARALLAX = 30;
-
-        ctx.setTransform(
-          camera.scale * dpr,
-          0,
-          0,
-          camera.scale * dpr,
-          (camera.x + mouse.x * PARALLAX) * dpr,
-          (camera.y + mouse.y * PARALLAX) * dpr,
-        );
-
-        lastMapRect = drawImageCover(ctx, map, width, height);
-
-        cloudX += 0.06;
-        if (cloudX > width) cloudX = 0;
-        ctx.globalAlpha = 0.95;
-        ctx.drawImage(clouds1, cloudX, -cloudX * 0.4, width, height);
-        ctx.drawImage(clouds1, cloudX - width, -cloudX * 0.4, width, height);
-        ctx.globalAlpha = 1;
-
-        markers.forEach((m) => drawMarker(m, t, lastMapRect));
-
-        requestAnimationFrame(draw);
-      }
-
-      /* ================== EVENTS ================== */
-      canvas.addEventListener("click", (e) => {
-        if (!lastMapRect) return;
-
-        const rect = canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-
-        const wx = (mx - camera.x) / camera.scale;
-        const wy = (my - camera.y) / camera.scale;
-
-        for (const m of markers) {
-          const px = lastMapRect.x + m.x * lastMapRect.w;
-          const py = lastMapRect.y + m.y * lastMapRect.h;
-
-          const box = {
-            x: px - m.w / 1.75 - 16,
-            y: py - 150,
-            w: m.w + 55,
-            h: m.h + 32,
-          };
-
-          if (
-            wx >= box.x &&
-            wx <= box.x + box.w &&
-            wy >= box.y &&
-            wy <= box.y + box.h
-          ) {
-            zoomToMarker(m, px, py);
-            break;
-          }
-        }
-      });
-
-      canvas.addEventListener("mousemove", (e) => {
-        const rect = canvas.getBoundingClientRect();
-
-        // normalize [-1 .. 1]
-        mouse.tx = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
-        mouse.ty = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
-      });
-
-      /* ================== START ================== */
-      Promise.all([
-        new Promise((r) => (map.onload = r)),
-        new Promise((r) => (clouds1.onload = r)),
-      ]).then(() => requestAnimationFrame(draw));
-    </script>
-  </body>
+  <!-- Main script -->
+  <script src="./map.js"></script>
+</body>
 </html>
