@@ -13,14 +13,14 @@ const CONFIG = {
   zoomSmooth: 0.03,
   mouseSmooth: 0.06,
   cloudSpeed: 0.06,
-  cloudAlpha: 0.95
+  cloudAlpha: 0.95,
 };
 
 /* =========================
    CANVAS / DPI
    ========================= */
-const canvas = document.getElementById("c");
-const ctx = canvas.getContext("2d");
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
 
 let dpr = window.devicePixelRatio || 1;
 let viewW = 0;
@@ -37,7 +37,7 @@ function resizeCanvas() {
   canvas.height = Math.round(viewH * dpr);
 }
 
-window.addEventListener("resize", resizeCanvas);
+window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
 /* =========================
@@ -72,8 +72,8 @@ const Assets = {
   clouds: new Image(),
 };
 
-Assets.map.src = "map.jpg";
-Assets.clouds.src = "clouds_big.png";
+Assets.map.src = 'map.jpg';
+Assets.clouds.src = 'clouds_big.png';
 
 /* =========================
    MOUSE (Parallax)
@@ -85,11 +85,38 @@ const Mouse = {
   ty: 0,
 };
 
-canvas.addEventListener("mousemove", (e) => {
+canvas.addEventListener('mousemove', (e) => {
   const rect = canvas.getBoundingClientRect();
 
   Mouse.tx = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
   Mouse.ty = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
+});
+// Pointer cursor on marker hover
+canvas.addEventListener('mousemove', (e) => {
+  if (!RenderState.mapRect) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  // world coords (match your click logic)
+  const wx = (mx - Camera.x) / Camera.scale;
+  const wy = (my - Camera.y) / Camera.scale;
+
+  let hovering = false;
+
+  for (const m of markers) {
+    const px = RenderState.mapRect.x + m.x * RenderState.mapRect.w;
+    const py = RenderState.mapRect.y + m.y * RenderState.mapRect.h;
+    const box = m.getHitBox(px, py);
+
+    if (wx >= box.x && wx <= box.x + box.w && wy >= box.y && wy <= box.y + box.h) {
+      hovering = true;
+      break;
+    }
+  }
+
+  canvas.style.cursor = hovering ? 'pointer' : 'default';
 });
 
 /* =========================
@@ -151,7 +178,8 @@ const markers = [
   {
     x: 0.61,
     y: 0.32,
-    logo: "iconic-logo.png",
+    logo: 'iconic-logo.png',
+    url: 'https://mered.edirectstaging.uk/dashboard/projects/d/16',
     w: 120,
     h: 55,
     delay: 0.4,
@@ -159,7 +187,8 @@ const markers = [
   {
     x: 0.312,
     y: 0.722,
-    logo: "rivera-logo.png",
+    logo: 'rivera-logo.png',
+    url: 'https://mered.edirectstaging.uk/dashboard/projects/d/24',
     w: 120,
     h: 55,
     delay: 0.8,
@@ -204,14 +233,14 @@ function drawMarker(marker, time, mapRect) {
 
   // label
   ctx.globalAlpha = alpha;
-  ctx.fillStyle = "rgba(21,24,37,0.85)";
+  ctx.fillStyle = 'rgba(21,24,37,0.85)';
   roundRectPath(
     ctx,
     px - marker.w / 1.75 - 16,
     py - 150 + float,
     marker.w + 55,
     marker.h + 32,
-    14
+    14,
   );
   ctx.fill();
 
@@ -221,7 +250,7 @@ function drawMarker(marker, time, mapRect) {
     px - marker.w / 2.2,
     py - 132 + float,
     marker.w,
-    marker.h
+    marker.h,
   );
 
   ctx.globalAlpha = 1;
@@ -282,7 +311,7 @@ function renderFrame(now) {
     0,
     Camera.scale * dpr,
     (Camera.x + Mouse.x * CONFIG.parallax) * dpr,
-    (Camera.y + Mouse.y * CONFIG.parallax) * dpr
+    (Camera.y + Mouse.y * CONFIG.parallax) * dpr,
   );
 
   // map
@@ -298,14 +327,14 @@ function renderFrame(now) {
     RenderState.cloudX,
     -RenderState.cloudX * 0.4,
     viewW,
-    viewH
+    viewH,
   );
   ctx.drawImage(
     Assets.clouds,
     RenderState.cloudX - viewW,
     -RenderState.cloudX * 0.4,
     viewW,
-    viewH
+    viewH,
   );
   ctx.globalAlpha = 1;
 
@@ -318,7 +347,7 @@ function renderFrame(now) {
 /* =========================
    CLICK EVENT
    ========================= */
-canvas.addEventListener("click", (e) => {
+canvas.addEventListener('click', (e) => {
   if (!RenderState.mapRect) return;
 
   const rect = canvas.getBoundingClientRect();
@@ -341,7 +370,11 @@ canvas.addEventListener("click", (e) => {
       wy >= box.y &&
       wy <= box.y + box.h
     ) {
-      zoomToMarker(m, px, py);
+      if (m.url) {
+        window.location.href = m.url;
+      } else {
+        zoomToMarker(m, px, py);
+      }
       break;
     }
   }
